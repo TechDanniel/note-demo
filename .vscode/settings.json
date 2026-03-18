@@ -1,0 +1,7 @@
+{
+	// 编辑器相关基础配置
+	"editor.tabSize": 2,
+	"editor.insertSpaces": true,
+	"editor.formatOnSave": true,
+	"files.autoSave": "onFocusChange",
+}
