@@ -13,6 +13,8 @@
     "dev:all": "concurrently -k -n app,docs \"pnpm run dev:app\" \"pnpm run docs:dev\""
   },
   "dependencies": {
+    "@xenova/transformers": "^2.21.0",
+    "openai": "^6.32.0",
     "vue": "^3.5.25"
   },
   "devDependencies": {

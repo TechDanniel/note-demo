@@ -1,43 +1,49 @@
 {
-  "hash": "eff6f76c",
+  "hash": "a2a75600",
   "configHash": "3334f6e1",
-  "lockfileHash": "b8cab542",
-  "browserHash": "95c8c9ed",
+  "lockfileHash": "00144c90",
+  "browserHash": "3fe33abe",
   "optimized": {
     "vue": {
       "src": "../../../../node_modules/.pnpm/vue@3.5.29_typescript@5.9.3/node_modules/vue/dist/vue.runtime.esm-bundler.js",
       "file": "vue.js",
-      "fileHash": "19de8ada",
+      "fileHash": "cd4c5e5b",
       "needsInterop": false
     },
     "vitepress > @vue/devtools-api": {
       "src": "../../../../node_modules/.pnpm/@vue+devtools-api@8.0.7/node_modules/@vue/devtools-api/dist/index.js",
       "file": "vitepress___@vue_devtools-api.js",
-      "fileHash": "e4bd6b67",
+      "fileHash": "40d484fb",
       "needsInterop": false
     },
     "vitepress > @vueuse/core": {
       "src": "../../../../node_modules/.pnpm/@vueuse+core@14.2.1_vue@3.5.29_typescript@5.9.3_/node_modules/@vueuse/core/dist/index.js",
       "file": "vitepress___@vueuse_core.js",
-      "fileHash": "1236ab3c",
+      "fileHash": "d383b1b3",
       "needsInterop": false
     },
     "vitepress > @vueuse/integrations/useFocusTrap": {
       "src": "../../../../node_modules/.pnpm/@vueuse+integrations@14.2.1_f48244451a4d134c3fb701fa766d55ff/node_modules/@vueuse/integrations/dist/useFocusTrap.js",
       "file": "vitepress___@vueuse_integrations_useFocusTrap.js",
-      "fileHash": "a40b7050",
+      "fileHash": "6f9d25b9",
       "needsInterop": false
     },
     "vitepress > mark.js/src/vanilla.js": {
       "src": "../../../../node_modules/.pnpm/mark.js@8.11.1/node_modules/mark.js/src/vanilla.js",
       "file": "vitepress___mark__js_src_vanilla__js.js",
-      "fileHash": "d1097a95",
+      "fileHash": "0168aba8",
       "needsInterop": false
     },
     "vitepress > minisearch": {
       "src": "../../../../node_modules/.pnpm/minisearch@7.2.0/node_modules/minisearch/dist/es/index.js",
       "file": "vitepress___minisearch.js",
-      "fileHash": "07b9dfd2",
+      "fileHash": "216f96c5",
+      "needsInterop": false
+    },
+    "openai": {
+      "src": "../../../../node_modules/.pnpm/openai@6.32.0/node_modules/openai/index.mjs",
+      "file": "openai.js",
+      "fileHash": "d070017f",
       "needsInterop": false
     }
   },

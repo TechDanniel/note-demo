@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { resolve } from 'node:path'
 
 const APP_URL = process.env.VITEPRESS_APP_URL || 'http://localhost:5173/'
 
@@ -14,6 +15,7 @@ export default defineConfig({
 
   vite: {
     configFile: false,
+	envDir: resolve(__dirname, '../..'),
   },
 
   srcDir: './src',
