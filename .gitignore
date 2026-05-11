@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 .env.dev
+docs/.vitepress/cache
 
 # Editor directories and files
 .idea
