@@ -1,39 +1,23 @@
 import type { Match, WorkerMsg } from '../types/floatingQA'
+import { OpenRouter } from '@openrouter/sdk'
 
 export type FloatingQaEnv = {
 	apiKey?: string
-	baseUrl?: string
-	chatModel: string
-	embeddingProvider: 'openai-compatible' | 'local'
-	embeddingModel: string
-	localEmbeddingModel: string
+	chatModel?: string
+	embeddingModel?: string
 	kbManifestUrl: string
 	kbVectorsUrl: string
 }
 
-export function getBaseUrl() {
-	const base = (import.meta.env.BASE_URL as string | undefined) ?? '/'
-	return base.endsWith('/') ? base : `${base}/`
-}
-
 export function createFloatingQaEnv(): FloatingQaEnv {
-	const embeddingProviderRaw = (import.meta.env.VITE_EMBEDDING_PROVIDER as string | undefined) ?? 'openai-compatible'
-	const embeddingProvider = embeddingProviderRaw === 'local' ? 'local' : 'openai-compatible'
-	const localEmbeddingModel =
-		(import.meta.env.VITE_LOCAL_EMBEDDING_MODEL as string | undefined) ?? 'Xenova/all-MiniLM-L6-v2'
-
 	return {
-		apiKey: import.meta.env.VITE_OPENAI_API_KEY as string | undefined,
-		baseUrl: import.meta.env.VITE_OPENAI_BASE_URL as string | undefined,
-		chatModel: (import.meta.env.VITE_OPENAI_MODEL as string | undefined) ?? 'gpt-5.3-codex',
-		embeddingProvider,
-		embeddingModel:
-			(import.meta.env.VITE_OPENAI_EMBEDDING_MODEL as string | undefined) ?? 'text-embedding-3-small',
-		localEmbeddingModel,
+		apiKey: import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined,
+		chatModel: import.meta.env.VITE_OPENROUTER_MODEL as string | undefined,
+		embeddingModel: import.meta.env.VITE_OPENROUTER_EMBEDDING_MODEL as string | undefined,
 		kbManifestUrl:
-			(import.meta.env.VITE_KB_MANIFEST_URL as string | undefined) ?? `${getBaseUrl()}kb/manifest.json`,
+			(import.meta.env.VITE_KB_MANIFEST_URL as string | undefined) ?? '/kb/manifest.json',
 		kbVectorsUrl:
-			(import.meta.env.VITE_KB_VECTORS_URL as string | undefined) ?? `${getBaseUrl()}kb/vectors.bin`
+			(import.meta.env.VITE_KB_VECTORS_URL as string | undefined) ?? '/kb/vectors.bin'
 	}
 }
 
@@ -103,46 +87,80 @@ function kbMissingHint(env: FloatingQaEnv) {
 		`manifest: ${env.kbManifestUrl}`,
 		`vectors:  ${env.kbVectorsUrl}`,
 		'',
-		'请先用 CLI 生成并放到站点可访问的位置（VitePress 通常是 note-demo/docs/public/kb）：',
-		'  knowledge-base ai index --input <你的md或目录> --out note-demo/docs/public/kb',
+		'请先用 CLI 生成并放到站点可访问的位置（VitePress 通常是 note-demo/public/kb）：',
+		'  knowledge-base ai index --input <你的md或目录> --out note-demo/public/kb',
 		'',
 		'或通过 .env 配置覆盖：VITE_KB_MANIFEST_URL / VITE_KB_VECTORS_URL。'
 	].join('\n')
 }
 
-export async function chat(env: FloatingQaEnv, prompt: string) {
-	if (!env.apiKey) throw new Error('缺少 VITE_OPENAI_API_KEY')
-	if (!env.baseUrl) throw new Error('缺少 VITE_OPENAI_BASE_URL')
-	const baseUrl = env.baseUrl.replace(/\/$/, '')
+export async function chat(
+	env: FloatingQaEnv,
+	prompt: string,
+	options?: {
+		onDelta?: (text: string) => void
+		history?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+	}
+) {
+	if (!env.apiKey) throw new Error('缺少 VITE_OPENROUTER_API_KEY')
+	if (!env.chatModel) throw new Error('缺少 VITE_OPENROUTER_MODEL')
 
-	const res = await fetch(`${baseUrl}/chat/completions`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${env.apiKey}`
-		},
-		body: JSON.stringify({
-			model: env.chatModel,
-			messages: [
-				{
-					role: 'system',
-					content:
-						'你是一个严谨的知识库问答助手。优先基于给定的上下文回答；如果上下文不足以支持结论，请明确说明无法从知识库得出答案。'
-				},
-				{ role: 'user', content: prompt }
-			],
-			temperature: 0.2,
-			max_tokens: 1024
-		})
+	const client = new OpenRouter({
+		apiKey: env.apiKey
 	})
 
-	if (!res.ok) {
-		const text = await res.text().catch(() => '')
-		throw new Error(`Chat 请求失败：${res.status} ${text}`)
+	const systemMsg = {
+		role: 'system',
+		content:
+			'你是一个严谨的知识库问答助手。优先基于给定的上下文回答；如果上下文不足以支持结论，请明确说明无法从知识库得出答案。'
+	} as const
+	const history = (options?.history ?? []).filter((m) => Boolean(m?.content?.trim()))
+
+	const userMsg = { role: 'user', content: prompt } as const
+
+	// 流式：边接收边输出，便于 UI 实时渲染。
+	const stream: any = await client.chat.send({
+		chatRequest: {
+			model: env.chatModel,
+			stream: true,
+			messages: [systemMsg, ...history, userMsg],
+			temperature: 0.2,
+			maxTokens: 1024
+		}
+	})
+
+	let fullText = ''
+
+	const emit = (delta: unknown) => {
+		if (typeof delta !== 'string' || !delta) return
+		fullText += delta
+		options?.onDelta?.(delta)
 	}
 
-	const json: any = await res.json()
-	const content = json?.choices?.[0]?.message?.content?.trim()
+	if (stream && typeof stream === 'object' && Symbol.asyncIterator in stream) {
+		for await (const chunk of stream as AsyncIterable<any>) {
+			const content = chunk?.choices?.[0]?.delta?.content
+      if(content){
+        emit(content)
+      }
+		}
+		const trimmed = fullText.trim()
+		if (!trimmed) throw new Error('Chat 返回为空')
+		return fullText
+	}
+
+	// 如果 SDK 在某些环境下未返回 async iterable，则 fallback 为非流式。
+	const result: any = await client.chat.send({
+		chatRequest: {
+			model: env.chatModel,
+			stream: false,
+			messages: [systemMsg, ...history, userMsg],
+			temperature: 0.2,
+			maxTokens: 1024
+		}
+	})
+
+	const content = result?.choices?.[0]?.message?.content?.trim()
 	if (!content) throw new Error('Chat 返回为空')
 	return content as string
 }
@@ -242,8 +260,8 @@ export function createFloatingQaService(options: {
 
 	function searchKb(query: string, topK = 5): Promise<Match[]> {
 		if (!worker) throw new Error('Worker 未初始化')
-		if (options.env.embeddingProvider === 'openai-compatible' && !options.env.apiKey) {
-			throw new Error('缺少 VITE_OPENAI_API_KEY（远端 embedding 需要）')
+		if (!options.env.apiKey) {
+			throw new Error('缺少 OPENROUTER_API_KEY（远端 embedding 需要）')
 		}
 		return new Promise<Match[]>((resolve: (m: Match[]) => void, reject: (e: Error) => void) => {
 			pendingSearchResolve = resolve
@@ -254,9 +272,9 @@ export function createFloatingQaService(options: {
 				topK,
 				embedding:
 					{
-                        provider: 'local',
-                        model: options.env.localEmbeddingModel
-                    }
+            model: options.env.embeddingModel,
+            apiKey: options.env.apiKey
+          }
 			})
 		})
 	}

@@ -1,25 +1,10 @@
 import type { KbManifest, KbWorkerIncomingMessage, KbWorkerSearchMessage } from '../types/workers'
+import { OpenRouter } from '@openrouter/sdk';
 
 let manifest: KbManifest | null = null
 let vectors: Float32Array | null = null
 let dimension = 0
 let norms: Float32Array | null = null
-
-let localExtractorPromise: Promise<any> | null = null
-let localModelName: string | null = null
-
-async function getLocalExtractor(model: string) {
-	if (localExtractorPromise && localModelName === model) return localExtractorPromise
-	localModelName = model
-	localExtractorPromise = import('@xenova/transformers').then(async (m: any) => {
-		const pipeline = m?.pipeline
-		if (typeof pipeline !== 'function') {
-			throw new Error('无法加载 @xenova/transformers 的 pipeline()')
-		}
-		return await pipeline('feature-extraction', model)
-	})
-	return localExtractorPromise
-}
 
 async function fetchJson<T>(url: string): Promise<T> {
 	const res = await fetch(url)
@@ -53,36 +38,28 @@ function dot(a: Float32Array, aOffset: number, b: Float32Array) {
 }
 
 async function embedQuery(input: string, cfg: KbWorkerSearchMessage['embedding']): Promise<Float32Array> {
-	if (cfg.provider === 'local') {
-		const extractor = await getLocalExtractor(cfg.model)
-		const out = await extractor(input, { pooling: 'mean', normalize: true })
-		const emb = out?.data
-		if (!emb || !(emb instanceof Float32Array) || emb.length === 0) {
-			throw new Error('本地 Embedding 返回为空')
-		}
-		return emb
-	}
+ const client = new OpenRouter({
+    apiKey: cfg.apiKey,
+  })
+  const res = await client.embeddings.generate({
+    requestBody: {
+      model: cfg.model,
+      input,
+      encodingFormat: 'float'
+    }
+  })
+	if (typeof res === 'string') {
+    throw new Error(`Embedding 返回为字符串（非对象），无法读取 data内容片段：${res.slice(0, 200)}`)
+  }
 
-	const baseUrl = cfg.baseUrl.replace(/\/$/, '')
-	const res = await fetch(`${baseUrl}/embeddings`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${cfg.apiKey}`
-		},
-		body: JSON.stringify({
-			model: cfg.model,
-			input
-		})
-	})
-	if (!res.ok) {
-		const text = await res.text().catch(() => '')
-		throw new Error(`Embedding 请求失败：${res.status} ${text}`)
-	}
-	const json: any = await res.json()
-	const emb: number[] | undefined = json?.data?.[0]?.embedding
-	if (!emb || emb.length === 0) throw new Error('Embedding 返回为空')
-	return Float32Array.from(emb)
+  const first = res.data?.[0]?.embedding
+  if (!first) {
+    throw new Error('Embedding 请求成功但返回为空。')
+  }
+  if (typeof first === 'string') {
+    throw new Error('Embedding 返回为 base64 字符串，无法转换为向量。请使用 encodingFormat=float。')
+  }
+	return Float32Array.from(first)
 }
 
 function topKSimilar(queryVec: Float32Array, topK: number) {

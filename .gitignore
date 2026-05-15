@@ -11,7 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
-.env.dev
+.env.development
 docs/.vitepress/cache
 
 # Editor directories and files

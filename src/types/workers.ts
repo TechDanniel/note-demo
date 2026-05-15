@@ -2,7 +2,6 @@ export type KbManifest = {
 	version: 1
 	createdAt: string
 	embedding: {
-		provider: 'openai-compatible' | 'local'
 		model: string
 		dimension: number
 	}
@@ -25,14 +24,8 @@ export type KbWorkerSearchMessage = {
 	query: string
 	topK: number
 	embedding:
-		| {
-			provider: 'openai-compatible'
-			baseUrl: string
+		{
 			apiKey: string
-			model: string
-		}
-		| {
-			provider: 'local'
 			model: string
 		}
 }
